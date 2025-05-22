@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
-import { products } from '../data/products';
+import React, { useState, useEffect } from 'react';
+import { productService } from '../services/productService';
+import { Product } from '../types';
 import ProductCard from '../components/ui/ProductCard';
 import PageHeader from '../components/layout/PageHeader';
 import Button from '../components/ui/Button';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Loader } from 'lucide-react';
 
 type CategoryType = 'all' | 'bread' | 'pastry' | 'cake' | 'cookie' | 'muffin' | 'pie';
 
 const Products: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<CategoryType>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const categories: { label: string; value: CategoryType }[] = [
     { label: 'All', value: 'all' },
@@ -21,6 +25,25 @@ const Products: React.FC = () => {
     { label: 'Pies', value: 'pie' },
   ];
   
+  // Fetch products from the backend when component mounts
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const data = await productService.getProducts();
+        setProducts(data);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+        setError('Failed to load products. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
   const filteredProducts = products.filter(product => {
     const matchesCategory = activeCategory === 'all' || product.category === activeCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -69,7 +92,23 @@ const Products: React.FC = () => {
         </div>
       </div>
       
-      {filteredProducts.length > 0 ? (
+      {loading ? (
+        <div className="flex justify-center items-center py-20">
+          <Loader size={40} className="animate-spin text-primary-500" />
+          <span className="ml-3 text-lg text-gray-600">Loading products...</span>
+        </div>
+      ) : error ? (
+        <div className="text-center py-12">
+          <p className="text-red-500 text-lg">{error}</p>
+          <Button 
+            variant="primary" 
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </Button>
+        </div>
+      ) : filteredProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product} />

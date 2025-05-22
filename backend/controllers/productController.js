@@ -3,7 +3,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import productModel from '../models/productModel.js';
 
 
-// Add Product
+// Add Product this for admin panel
 const addProduct = async (req, res) => {
   try {
     // Validate file upload
@@ -142,7 +142,7 @@ const listProducts = async (_req, res) => {
   }
 };
 
-// Remove Product
+// Remove Product this for admin panel
 const removeProduct = async (req, res) => {
   try {
     await productModel.findByIdAndDelete(req.params.id);

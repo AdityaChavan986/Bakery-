@@ -1,13 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { products } from '../data/products';
 import { testimonials } from '../data/testimonials';
+import { productService } from '../services/productService';
+import { Product } from '../types';
 import ProductCard from '../components/ui/ProductCard';
 import TestimonialCard from '../components/ui/TestimonialCard';
 import Button from '../components/ui/Button';
-import { ArrowRight, Cake, Utensils, Award, Clock } from 'lucide-react';
+import { ArrowRight, Cake, Utensils, Award, Clock, Loader } from 'lucide-react';
 
 const Home: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch products from the backend when component mounts
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const data = await productService.getProducts();
+        setProducts(data);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+        setError('Failed to load products. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+  
   // Get only popular products
   const popularProducts = products.filter(product => product.popular);
   
@@ -91,11 +115,33 @@ const Home: React.FC = () => {
             </Link>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {popularProducts.slice(0, 6).map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader size={40} className="animate-spin text-primary-500" />
+              <span className="ml-3 text-lg text-gray-600">Loading products...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-500 text-lg">{error}</p>
+              <Button 
+                variant="primary" 
+                className="mt-4"
+                onClick={() => window.location.reload()}
+              >
+                Try Again
+              </Button>
+            </div>
+          ) : popularProducts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {popularProducts.slice(0, 6).map(product => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">No popular products available at the moment.</p>
+            </div>
+          )}
         </div>
       </section>
       

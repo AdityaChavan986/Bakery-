@@ -324,11 +324,11 @@ const Order: React.FC = () => {
                       </div>
                       <div className="ml-3 flex-grow">
                         <p className="text-sm font-medium text-gray-800">{item.product.name}</p>
-                        <p className="text-xs text-gray-500">{item.quantity} × ${item.product.price.toFixed(2)}</p>
+                        <p className="text-xs text-gray-500">{item.quantity} × ₹{item.product.price.toFixed(2)}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-gray-800">
-                          ${(item.product.price * item.quantity).toFixed(2)}
+                          ₹{(item.product.price * item.quantity).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -339,21 +339,21 @@ const Order: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">${totalPrice.toFixed(2)}</span>
+                  <span className="font-medium">₹{totalPrice.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Shipping</span>
-                  <span className="font-medium">$5.00</span>
+                  <span className="font-medium">₹{5.00.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tax (7%)</span>
-                  <span className="font-medium">${(totalPrice * 0.07).toFixed(2)}</span>
+                  <span className="font-medium">₹{(totalPrice * 0.07).toFixed(2)}</span>
                 </div>
                 <div className="pt-4 border-t border-gray-100">
                   <div className="flex justify-between">
                     <span className="font-semibold text-gray-800">Total</span>
                     <span className="font-bold text-primary-600">
-                      ${(totalPrice + 5 + (totalPrice * 0.07)).toFixed(2)}
+                      ₹{(totalPrice + 5 + (totalPrice * 0.07)).toFixed(2)}
                     </span>
                   </div>
                 </div>
