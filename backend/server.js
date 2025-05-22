@@ -5,6 +5,10 @@ import connectDB from './config/mongodb.js';
 import connectCloudinary from './config/cloudinary.js';
 import productRouter from './routes/productRoutes.js';      
 import userRouter from './routes/userRoutes.js';
+import cartRouter from './routes/cartRoutes.js';
+
+
+
 //App onfig
 const app = express();
 const port = process.env.PORT || 4000;
@@ -22,6 +26,7 @@ app.use(express.json());
 //Routes
 app.use('/api/users', userRouter);
 app.use('/api/products', productRouter);
+app.use('/api/cart', cartRouter);
 
 
 app.get('/', (req, res) => {
