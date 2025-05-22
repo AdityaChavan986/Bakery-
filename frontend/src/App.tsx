@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import Home from './pages/Home';
@@ -19,6 +20,32 @@ function App() {
       <CartProvider>
         <Router>
           <div className="min-h-screen flex flex-col">
+            {/* Toast notifications */}
+            <Toaster 
+              position="top-right"
+              toastOptions={{
+                duration: 3000,
+                style: {
+                  background: '#fff',
+                  color: '#333',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '0.5rem',
+                  padding: '1rem',
+                },
+                success: {
+                  iconTheme: {
+                    primary: '#4CAF50',
+                    secondary: '#fff',
+                  },
+                },
+                error: {
+                  iconTheme: {
+                    primary: '#E53E3E',
+                    secondary: '#fff',
+                  },
+                },
+              }}
+            />
             <Navbar />
             <main className="flex-grow">
               <Routes>

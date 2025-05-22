@@ -7,4 +7,13 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: process.env.VITE_BACKEND_URL,
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 });
