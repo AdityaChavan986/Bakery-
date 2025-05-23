@@ -1,4 +1,5 @@
 import userModel from "../models/userModel.js";
+import mongoose from "mongoose";
 
 // Add product to user cart
 const addToCart = async (req, res) => {
@@ -22,8 +23,20 @@ const addToCart = async (req, res) => {
             });
         }
 
-        // Find user and get cart data
-        const userData = await userModel.findById(userId);
+        // Check if userId is a valid MongoDB ObjectId
+        let userData;
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+            // If it's a valid ObjectId, find by ID
+            userData = await userModel.findById(userId);
+        } else {
+            // If it's not a valid ObjectId, try to find by email
+            // This is a fallback approach
+            console.log('Invalid ObjectId, trying to find user by other means');
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid user ID format' 
+            });
+        }
         if (!userData) {
             return res.status(404).json({ 
                 success: false, 

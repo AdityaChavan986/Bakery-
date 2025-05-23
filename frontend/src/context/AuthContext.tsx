@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import axios from 'axios';
 import { User } from '../types';
 import { toast } from 'react-hot-toast';
+import { jwtDecode } from 'jwt-decode';
 
 // Get the backend URL from environment variables
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
@@ -19,8 +20,6 @@ interface AuthContextType {
   logout: () => void;
   error: string | null;
 }
-
-    
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -41,7 +40,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         if (storedUser && token) {
           try {
+            // Try to extract the user ID from the token first
+            let userId;
+            try {
+              const decoded: any = jwtDecode(token);
+              userId = decoded.id; // The backend puts the user ID in the 'id' field of the token
+              console.log('Decoded token:', decoded);
+            } catch (decodeErr) {
+              console.error('Failed to decode token:', decodeErr);
+              // If we can't decode the token, use the stored user data
+              const userData = JSON.parse(storedUser);
+              userId = userData.id;
+            }
+            
+            // Now create the user object with the correct ID
             const userData = JSON.parse(storedUser);
+            // Override the ID with the one from the token if available
+            userData.id = userId || userData.id;
+            
             setUser(userData);
             setIsAdmin(adminStatus === 'true');
             // Set axios default header for all requests
@@ -88,9 +104,57 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Set axios default header for future requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
+      // First, try to find the user by email to get their MongoDB ID
+      try {
+        // This is a temporary solution - in a real app, you'd want the backend to return the user ID
+        const userResponse = await axios.post(`${BACKEND_URL}/api/users/find-by-email`, { email });
+        if (userResponse.data.success && userResponse.data.user) {
+          console.log('Found user by email:', userResponse.data.user);
+          // Use the MongoDB ID from the backend response
+          const mongoUserId = userResponse.data.user._id;
+          
+          // Create user object with the MongoDB ID
+          const userData: User = {
+            id: mongoUserId,
+            name: userResponse.data.user.name || email.split('@')[0],
+            email: email,
+            avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=800'
+          };
+          
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+          toast.success('Login successful!');
+          return;
+        }
+      } catch (findError) {
+        console.error('Error finding user by email:', findError);
+        // Continue with the fallback approach
+      }
+      
+      // Extract user ID from token
+      let userId;
+      try {
+        // Decode the JWT token to get the user ID
+        const decoded: any = jwtDecode(token);
+        userId = decoded.id; // The backend puts the user ID in the 'id' field of the token
+        console.log('Decoded token:', decoded);
+        
+        // Check if the ID is a valid MongoDB ObjectId (24 hex characters)
+        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+        if (!isValidObjectId) {
+          console.warn('Token contains invalid ObjectId:', userId);
+          // Use a temporary ID that won't cause MongoDB to try to convert it
+          userId = 'invalid-id';
+        }
+      } catch (err) {
+        console.error('Failed to decode token:', err);
+        // Use a string ID that won't cause MongoDB to try to convert it
+        userId = 'invalid-id';
+      }
+      
       // Create user object
       const userData: User = {
-        id: Date.now(), // Temporary ID
+        id: userId, // Use the ID from the JWT token
         name: email.split('@')[0], // Using email as temporary name
         email: email,
         avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=800'
@@ -130,9 +194,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Set axios default header for future requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
-      // Create admin user object
+      // Create admin user object - Admin doesn't need cart functionality
       const userData: User = {
-        id: 0, // Admin ID is 0
+        id: 'admin', // Admin ID is 'admin'
         name: 'Admin',
         email: email,
         avatar: 'https://images.pexels.com/photos/2381069/pexels-photo-2381069.jpeg?auto=compress&cs=tinysrgb&w=800'

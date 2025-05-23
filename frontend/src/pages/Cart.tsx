@@ -4,16 +4,32 @@ import { useCart } from '../context/CartContext';
 import PageHeader from '../components/layout/PageHeader';
 import Card, { CardBody, CardFooter } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, Loader } from 'lucide-react';
+
 
 const Cart: React.FC = () => {
-  const { items, removeFromCart, updateQuantity, totalPrice, clearCart } = useCart();
+  const { items, removeFromCart, updateQuantity, totalPrice, clearCart, isLoading } = useCart();
   const navigate = useNavigate();
   
   const handleCheckout = () => {
     navigate('/order');
   };
   
+  // Show loading spinner when cart operations are in progress
+  const renderLoadingOverlay = () => {
+    if (isLoading) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg shadow-lg flex items-center">
+            <Loader className="animate-spin mr-2" size={20} />
+            <span>Processing...</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -43,11 +59,12 @@ const Cart: React.FC = () => {
   
   return (
     <div className="container mx-auto px-4 py-8">
+      {renderLoadingOverlay()}
       <PageHeader 
         title="Your Cart"
         subtitle="Review and modify your selected items"
         action={
-          <Button variant="outline" onClick={clearCart}>
+          <Button variant="outline" onClick={clearCart} disabled={isLoading}>
             <Trash2 size={16} className="mr-2" />
             Clear Cart
           </Button>
@@ -91,6 +108,7 @@ const Cart: React.FC = () => {
                           <button 
                             onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                             className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+                            disabled={isLoading}
                           >
                             <Minus size={16} />
                           </button>
@@ -98,6 +116,7 @@ const Cart: React.FC = () => {
                           <button 
                             onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                             className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+                            disabled={isLoading}
                           >
                             <Plus size={16} />
                           </button>
@@ -106,6 +125,7 @@ const Cart: React.FC = () => {
                         <button 
                           onClick={() => removeFromCart(item.product.id)}
                           className="text-red-500 hover:text-red-700 focus:outline-none"
+                          disabled={isLoading}
                         >
                           <Trash2 size={18} />
                         </button>
@@ -155,6 +175,7 @@ const Cart: React.FC = () => {
                 variant="primary" 
                 fullWidth
                 onClick={handleCheckout}
+                disabled={isLoading}
               >
                 Proceed to Checkout
               </Button>

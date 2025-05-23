@@ -112,4 +112,35 @@ const adminLogin = async (req, res) => {
 
 }
 
-export { loginUser, registerUser, adminLogin };
+// Find user by email (for cart functionality)
+const findUserByEmail = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.json({success: false, message: "Email is required"});
+        }
+
+        // Find user by email but don't return sensitive data
+        const user = await userModel.findOne({ email }).select('-password');
+
+        if (!user) {
+            return res.json({success: false, message: "User not found"});
+        }
+
+        res.json({
+            success: true,
+            user: {
+                _id: user._id,
+                name: user.name,
+                email: user.email
+            }
+        });
+        
+    } catch (error) {
+        console.log(error);
+        res.json({success: false, message: error.message});
+    }
+};
+
+export { loginUser, registerUser, adminLogin, findUserByEmail };
