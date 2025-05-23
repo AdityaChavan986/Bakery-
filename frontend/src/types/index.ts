@@ -1,5 +1,6 @@
 export interface Product {
-  id: number;
+  id: string | number; // Can be string (MongoDB _id) or number
+  _id?: string; // MongoDB ID, optional in frontend
   name: string;
   description: string;
   price: number;

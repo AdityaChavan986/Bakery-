@@ -9,7 +9,10 @@ import Products from './pages/Products';
 import AIRecipe from './pages/AIRecipe';
 import Cart from './pages/Cart';
 import Order from './pages/Order';
+import Admin from './pages/Admin';
+import AddProduct from './pages/AddProduct';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import AdminRoute from './components/layout/AdminRoute';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 
@@ -88,6 +91,22 @@ function App() {
                     <ProtectedRoute>
                       <Order />
                     </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/admin" 
+                  element={
+                    <AdminRoute>
+                      <Admin />
+                    </AdminRoute>
+                  } 
+                />
+                <Route 
+                  path="/add-product" 
+                  element={
+                    <AdminRoute>
+                      <AddProduct />
+                    </AdminRoute>
                   } 
                 />
               </Routes>

@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import { ShoppingCart, Menu, X, User } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, Settings } from 'lucide-react';
 import Button from '../ui/Button';
 
 const Navbar: React.FC = () => {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, isAdmin, user, logout } = useAuth();
   const { totalItems } = useCart();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -73,6 +73,20 @@ const Navbar: React.FC = () => {
                 >
                   AI Recipes
                 </NavLink>
+                
+                {isAdmin && (
+                  <NavLink 
+                    to="/admin" 
+                    className={({ isActive }) => 
+                      isActive 
+                        ? "text-primary-600 font-medium flex items-center" 
+                        : "text-gray-700 hover:text-primary-600 transition-colors flex items-center"
+                    }
+                  >
+                    <Settings size={16} className="mr-1" />
+                    Admin Panel
+                  </NavLink>
+                )}
               </>
             )}
           </nav>
@@ -172,6 +186,21 @@ const Navbar: React.FC = () => {
                 >
                   AI Recipes
                 </NavLink>
+                
+                {isAdmin && (
+                  <NavLink 
+                    to="/admin" 
+                    className={({ isActive }) => 
+                      isActive 
+                        ? "text-primary-600 font-medium flex items-center" 
+                        : "text-gray-700 flex items-center"
+                    }
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Settings size={16} className="mr-1" />
+                    Admin Panel
+                  </NavLink>
+                )}
                 
                 <NavLink 
                   to="/cart" 

@@ -12,7 +12,10 @@ axios.defaults.baseURL = BACKEND_URL;
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
+  isLoading: boolean; // Add loading state
   login: (email: string, password: string) => Promise<void>;
+  adminLogin: (email: string, password: string) => Promise<void>;
   logout: () => void;
   error: string | null;
 }
@@ -23,24 +26,48 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Add loading state
 
   // Check for stored token and user data on initial load
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    
-    if (storedUser && token) {
+    const checkAuthStatus = async () => {
       try {
-        setUser(JSON.parse(storedUser));
-        // Set axios default header for all requests
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      } catch (err) {
-        console.error('Failed to parse stored user data', err);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        setIsLoading(true);
+        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        const adminStatus = localStorage.getItem('isAdmin');
+        
+        if (storedUser && token) {
+          try {
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+            setIsAdmin(adminStatus === 'true');
+            // Set axios default header for all requests
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            
+            // Optional: Verify token with backend
+            // This would be a good place to validate the token with the server
+            // const response = await axios.get('/api/users/verify-token');
+            // if (!response.data.success) throw new Error('Invalid token');
+          } catch (err) {
+            console.error('Failed to parse stored user data or invalid token', err);
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            localStorage.removeItem('isAdmin');
+            setUser(null);
+            setIsAdmin(false);
+          }
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+    
+    checkAuthStatus();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -81,17 +108,73 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const adminLogin = async (email: string, password: string) => {
+    try {
+      setError(null);
+      console.log('AdminLogin - Attempting admin login with:', { email });
+      
+      const response = await axios.post(`${BACKEND_URL}/api/users/admin`, { email, password });
+      const data = response.data;
+      console.log('AdminLogin - Server response:', data);
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Admin login failed');
+      }
+      
+      // Store token
+      const token = data.token;
+      localStorage.setItem('token', token);
+      localStorage.setItem('isAdmin', 'true');
+      console.log('AdminLogin - Token and isAdmin stored in localStorage');
+      
+      // Set axios default header for future requests
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Create admin user object
+      const userData: User = {
+        id: 0, // Admin ID is 0
+        name: 'Admin',
+        email: email,
+        avatar: 'https://images.pexels.com/photos/2381069/pexels-photo-2381069.jpeg?auto=compress&cs=tinysrgb&w=800'
+      };
+      
+      // Explicitly set admin status first
+      setIsAdmin(true);
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      console.log('AdminLogin - Admin status set:', { isAdmin: true, user: userData });
+      toast.success('Admin login successful!');
+      
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Admin login failed';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      console.error('Admin login error:', err);
+    }
+  };
+
   const logout = () => {
     setUser(null);
+    setIsAdmin(false);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    localStorage.removeItem('isAdmin');
     // Remove authorization header
     delete axios.defaults.headers.common['Authorization'];
     toast.success('Logged out successfully');
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, error }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isAuthenticated: !!user, 
+      isAdmin, 
+      isLoading,
+      login, 
+      adminLogin,
+      logout, 
+      error 
+    }}>
       {children}
     </AuthContext.Provider>
   );
