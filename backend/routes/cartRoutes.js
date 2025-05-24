@@ -7,14 +7,16 @@ import {
     clearCart,
     getCartCount 
 } from '../controllers/cartController.js';
+import auth from '../middleware/auth.js';
 
 const cartRouter = express.Router();
 
-cartRouter.post('/get', getUserCart)
-cartRouter.post('/add', addToCart)
-cartRouter.post('/update', updateCart)
-cartRouter.post('/remove', removeFromCart)
-cartRouter.post('/clear', clearCart)
-cartRouter.post('/count', getCartCount)
+// Apply auth middleware to all cart routes
+cartRouter.post('/get', auth, getUserCart);
+cartRouter.post('/add', auth, addToCart);
+cartRouter.post('/update', auth, updateCart);
+cartRouter.post('/remove', auth, removeFromCart);
+cartRouter.post('/clear', auth, clearCart);
+cartRouter.post('/count', auth, getCartCount);
 
 export default cartRouter;

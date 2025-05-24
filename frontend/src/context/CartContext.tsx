@@ -3,6 +3,37 @@ import { Product, CartItem } from '../types';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
 import * as cartService from '../services/cartService';
+// Import the api module from the correct location
+import api from '../services/api';
+
+// Define a function to fetch products directly
+const fetchProducts = async (): Promise<Product[]> => {
+  try {
+    const response = await api.get('/products/list');
+    
+    // Map MongoDB _id to frontend id
+    const mappedProducts = response.data.products.map((product: any) => {
+      // Ensure we always have a valid id (string or number)
+      const id = product._id ? product._id : `temp-${Date.now()}`;
+      
+      return {
+        id: id,
+        _id: product._id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        image: product.image,
+        category: product.category,
+        popular: product.popular
+      };
+    });
+    
+    return mappedProducts;
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    throw error;
+  }
+};
 
 interface CartContextType {
   items: CartItem[];
@@ -25,53 +56,112 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Load cart data when user logs in
   useEffect(() => {
     const fetchCartData = async () => {
-      if (isAuthenticated && user) {
-        setIsLoading(true);
-        try {
-          const response = await cartService.getUserCart(user.id);
+      setIsLoading(true);
+      try {
+        if (isAuthenticated && user) {
+          console.log('User is authenticated:', user);
+          
+          // Get cart data from backend using JWT token for authentication
+          console.log('Fetching cart data from backend...');
+          const response = await cartService.getUserCart();
+          console.log('Cart data response from backend:', response);
+          
           if (response.success && response.cartData) {
-            // Convert backend cart data to frontend format
-            const cartItems: CartItem[] = [];
+            console.log('Successfully received cart data:', response.cartData);
             
-            // We need to fetch product details for each item in the cart
-            // For now, we'll use localStorage as a fallback
-            const savedCart = localStorage.getItem('cart');
-            if (savedCart) {
-              const localCartItems: CartItem[] = JSON.parse(savedCart);
+            // If we have cart data from the backend, we need to fetch the product details
+            try {
+              // Fetch all products to get their details
+              const products = await fetchProducts();
+              console.log('Fetched products:', products);
               
-              // Filter local cart items to match backend cart data
-              for (const item of localCartItems) {
-                const productId = item.product.id.toString();
-                if (response.cartData[productId]) {
+              // Convert backend cart data to frontend format
+              const cartItems: CartItem[] = [];
+              
+              // Iterate through the cart data from the backend
+              Object.entries(response.cartData).forEach(([productId, quantity]) => {
+                console.log(`Processing cart item: productId=${productId}, quantity=${quantity}`);
+                
+                // Find the product in the products list
+                // Try to match by either id or _id (MongoDB ObjectId)
+                const product = products.find((p: Product) => {
+                  // Convert both IDs to strings for comparison
+                  const productIdStr = productId.toString();
+                  const itemId = p.id.toString();
+                  const itemMongoId = p._id?.toString();
+                  
+                  return itemId === productIdStr || (itemMongoId && itemMongoId === productIdStr);
+                });
+                
+                if (product) {
+                  console.log(`Found product for ID ${productId}:`, product);
                   cartItems.push({
-                    product: item.product,
-                    quantity: response.cartData[productId]
+                    product,
+                    quantity: quantity as number
                   });
+                } else {
+                  console.log(`Product not found for ID ${productId}`);
+                }
+              });
+              
+              if (cartItems.length > 0) {
+                console.log('Setting cart items from backend:', cartItems);
+                setItems(cartItems);
+              } else {
+                console.log('No matching products found for cart items');
+                // Fallback to localStorage if no products were found
+                const savedCart = localStorage.getItem('cart');
+                if (savedCart) {
+                  const parsedCart = JSON.parse(savedCart);
+                  console.log('Falling back to localStorage cart:', parsedCart);
+                  setItems(parsedCart);
                 }
               }
-              
-              setItems(cartItems);
+            } catch (error) {
+              console.error('Error fetching product details:', error);
+              // Fallback to localStorage
+              const savedCart = localStorage.getItem('cart');
+              if (savedCart) {
+                const parsedCart = JSON.parse(savedCart);
+                console.log('Error fallback to localStorage cart:', parsedCart);
+                setItems(parsedCart);
+              }
+            }
+          } else {
+            console.log('No cart data returned from backend or request failed. Response:', response);
+            // Fallback to localStorage
+            const savedCart = localStorage.getItem('cart');
+            if (savedCart) {
+              const parsedCart = JSON.parse(savedCart);
+              console.log('Fallback to localStorage (no backend data):', parsedCart);
+              setItems(parsedCart);
             }
           }
-        } catch (error) {
-          console.error('Error fetching cart data:', error);
-          // Fallback to localStorage
+        } else {
+          // Not authenticated, use localStorage
+          console.log('User not authenticated, using localStorage');
           const savedCart = localStorage.getItem('cart');
           if (savedCart) {
-            setItems(JSON.parse(savedCart));
+            const parsedCart = JSON.parse(savedCart);
+            console.log('Loaded cart from localStorage (not authenticated):', parsedCart);
+            setItems(parsedCart);
           }
-        } finally {
-          setIsLoading(false);
         }
-      } else {
-        // Not authenticated, use localStorage
+      } catch (error) {
+        console.error('Error fetching cart data:', error);
+        // Fallback to localStorage
         const savedCart = localStorage.getItem('cart');
         if (savedCart) {
-          setItems(JSON.parse(savedCart));
+          const parsedCart = JSON.parse(savedCart);
+          console.log('Loaded cart from localStorage (error fallback):', parsedCart);
+          setItems(parsedCart);
         }
+      } finally {
+        setIsLoading(false);
       }
     };
     
+    console.log('CartContext useEffect triggered. isAuthenticated:', isAuthenticated, 'user:', user);
     fetchCartData();
   }, [isAuthenticated, user]);
   
@@ -101,7 +191,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // If user is authenticated, update backend
       if (isAuthenticated && user) {
-        const response = await cartService.addToCart(user.id, product.id);
+        // Use MongoDB ObjectId if available, otherwise use regular id
+        // This addresses the MongoDB ObjectId issue mentioned in the memory
+        const productId = product._id || product.id;
+        console.log(`Adding product to cart with ID: ${productId}`);
+        
+        const response = await cartService.addToCart(productId);
         if (!response.success) {
           toast.error(response.message || 'Failed to add item to cart');
           // Revert local state if backend update fails
@@ -135,13 +230,25 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const removeFromCart = async (productId: number | string) => {
     try {
       setIsLoading(true);
+      console.log(`Removing product from cart with ID: ${productId}`);
       
       // Update local state first
-      setItems(currentItems => currentItems.filter(item => item.product.id !== productId));
+      setItems(currentItems => {
+        console.log('Current items before removal:', currentItems);
+        return currentItems.filter(item => {
+          // Check both regular id and MongoDB _id
+          const itemId = item.product.id.toString();
+          const itemMongoId = item.product._id?.toString();
+          
+          console.log(`Comparing item ID ${itemId} and MongoDB ID ${itemMongoId} with ${productId}`);
+          return itemId !== productId.toString() && (!itemMongoId || itemMongoId !== productId.toString());
+        });
+      });
       
       // If user is authenticated, update backend
       if (isAuthenticated && user) {
-        const response = await cartService.removeFromCart(user.id, productId);
+        const response = await cartService.removeFromCart(productId);
+        console.log('Remove from cart response:', response);
         if (!response.success) {
           toast.error(response.message || 'Failed to remove item from cart');
           // No need to revert state as the item was already removed
@@ -157,6 +264,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateQuantity = async (productId: number | string, quantity: number) => {
     try {
       setIsLoading(true);
+      console.log(`Updating quantity for product ${productId} to ${quantity}`);
       
       if (quantity <= 0) {
         await removeFromCart(productId);
@@ -164,27 +272,50 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       // Update local state first
-      setItems(currentItems => 
-        currentItems.map(item => 
-          item.product.id === productId ? { ...item, quantity } : item
-        )
-      );
+      setItems(currentItems => {
+        console.log('Current items before update:', currentItems);
+        return currentItems.map(item => {
+          // Check both regular id and MongoDB _id
+          const itemId = item.product.id.toString();
+          const itemMongoId = item.product._id?.toString();
+          
+          const isMatch = itemId === productId.toString() || 
+                        (itemMongoId && itemMongoId === productId.toString());
+          
+          console.log(`Comparing item ID ${itemId} and MongoDB ID ${itemMongoId} with ${productId}, isMatch: ${isMatch}`);
+          
+          return isMatch ? { ...item, quantity } : item;
+        });
+      });
       
       // If user is authenticated, update backend
       if (isAuthenticated && user) {
-        const response = await cartService.updateCartItem(user.id, productId, quantity);
+        const response = await cartService.updateCartItem(productId, quantity);
+        console.log('Update cart response:', response);
+        
         if (!response.success) {
           toast.error(response.message || 'Failed to update cart');
           // Revert local state if backend update fails
           setItems(prevItems => {
-            const prevItem = prevItems.find(item => item.product.id === productId);
+            const prevItem = prevItems.find(item => {
+              const itemId = item.product.id.toString();
+              const itemMongoId = item.product._id?.toString();
+              
+              return itemId === productId.toString() || 
+                    (itemMongoId && itemMongoId === productId.toString());
+            });
+            
             if (!prevItem) return prevItems;
             
-            return prevItems.map(item => 
-              item.product.id === productId 
-                ? { ...item, quantity: prevItem.quantity } 
-                : item
-            );
+            return prevItems.map(item => {
+              const itemId = item.product.id.toString();
+              const itemMongoId = item.product._id?.toString();
+              
+              const isMatch = itemId === productId.toString() || 
+                            (itemMongoId && itemMongoId === productId.toString());
+              
+              return isMatch ? { ...item, quantity: prevItem.quantity } : item;
+            });
           });
         }
       }
@@ -204,7 +335,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // If user is authenticated, update backend
       if (isAuthenticated && user) {
-        const response = await cartService.clearCart(user.id);
+        const response = await cartService.clearCart();
         if (!response.success) {
           toast.error(response.message || 'Failed to clear cart');
         }

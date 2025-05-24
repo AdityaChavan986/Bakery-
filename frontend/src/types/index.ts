@@ -24,6 +24,7 @@ export interface CartItem {
 
 export interface User {
   id: string | number;
+  _id?: string;  // MongoDB ObjectId, added based on memory about ObjectId issues
   name: string;
   email: string;
   avatar: string;
