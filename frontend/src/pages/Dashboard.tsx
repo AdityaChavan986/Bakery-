@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import PageHeader from '../components/layout/PageHeader';
 import Card, { CardBody } from '../components/ui/Card';
+import Pagination from '../components/ui/Pagination';
 import { ShoppingBag, Calendar, Heart, Clock, Loader } from 'lucide-react';
 import { getUserOrders, formatOrderDate, getStatusBadgeColor, Order } from '../services/orderService';
 import { toast } from 'react-hot-toast';
@@ -12,8 +13,13 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { totalItems } = useCart();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [displayedOrders, setDisplayedOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage] = useState<number>(4); // Changed from 5 to 4 orders per page
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -24,7 +30,9 @@ const Dashboard: React.FC = () => {
         const response = await getUserOrders();
 
         if (response.success && response.orders) {
-          setOrders(response.orders);
+          // Sort orders by date (newest first)
+          const sortedOrders = [...response.orders].sort((a, b) => b.date - a.date);
+          setOrders(sortedOrders);
         } else {
           setError(response.message || 'Failed to fetch orders');
           toast.error(response.message || 'Failed to fetch orders');
@@ -40,6 +48,23 @@ const Dashboard: React.FC = () => {
 
     fetchOrders();
   }, [user]);
+  
+  // Update displayed orders when all orders change or page changes
+  useEffect(() => {
+    updatePaginatedOrders(currentPage);
+  }, [orders, currentPage]);
+  
+  // Function to update the paginated orders
+  const updatePaginatedOrders = (page: number) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setDisplayedOrders(orders.slice(startIndex, endIndex));
+  };
+  
+  // Function to handle page changes
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -142,7 +167,7 @@ const Dashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {orders.slice(0, 5).map((order) => (
+                    {displayedOrders.map((order) => (
                       <tr key={order._id}>
                         <td className="px-4 py-3 text-sm text-gray-900">#{order._id.substring(0, 6)}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{formatOrderDate(order.date)}</td>
@@ -157,16 +182,26 @@ const Dashboard: React.FC = () => {
                   </tbody>
                 </table>
               )}
-              {orders.length > 5 && (
-                <div className="mt-4 text-right">
-                  <Link
-                    to="/orders"
-                    className="text-primary-600 hover:text-primary-800 text-sm font-medium"
-                  >
-                    View all orders
-                  </Link>
+              {/* Pagination */}
+              {orders.length > itemsPerPage && (
+                <div className="mt-4">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(orders.length / itemsPerPage)}
+                    onPageChange={handlePageChange}
+                    totalItems={orders.length}
+                    itemsPerPage={itemsPerPage}
+                  />
                 </div>
               )}
+              <div className="mt-4 text-right">
+                <Link
+                  to="/orders"
+                  className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+                >
+                  View all orders
+                </Link>
+              </div>
             </div>
           </div>
         </Card>

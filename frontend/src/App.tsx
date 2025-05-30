@@ -12,6 +12,7 @@ import Order from './pages/Order';
 import Orders from './pages/Orders';
 import Admin from './pages/Admin';
 import AddProduct from './pages/AddProduct';
+import AdminOrders from './pages/AdminOrders';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import AdminRoute from './components/layout/AdminRoute';
 import { AuthProvider } from './context/AuthContext';
@@ -25,7 +26,11 @@ function App() {
           <div className="min-h-screen flex flex-col">
             {/* Toast notifications */}
             <Toaster 
-              position="top-right"
+              position="top-center"
+              containerStyle={{
+                top: '4.5rem', // Position below navbar
+                zIndex: 40 // Lower than navbar's z-50
+              }}
               toastOptions={{
                 duration: 3000,
                 style: {
@@ -115,6 +120,14 @@ function App() {
                   element={
                     <AdminRoute>
                       <AddProduct />
+                    </AdminRoute>
+                  } 
+                />
+                <Route 
+                  path="/admin-orders" 
+                  element={
+                    <AdminRoute>
+                      <AdminOrders />
                     </AdminRoute>
                   } 
                 />

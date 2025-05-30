@@ -118,12 +118,42 @@ const userOrders = async (req, res) => {
 const updateStatus = async (req, res) => {
     try {
         const { orderId, status } = req.body;
-
-        await orderModel.findByIdAndUpdate(orderId, { status });
-        res.json({ success: true, message: "Status Updated Successfully" });
+        
+        console.log(`Updating order status: orderId=${orderId}, status=${status}`);
+        
+        if (!orderId || !status) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Order ID and status are required" 
+            });
+        }
+        
+        // Find the order first to make sure it exists
+        const order = await orderModel.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Order not found" 
+            });
+        }
+        
+        // Update the order status
+        const updatedOrder = await orderModel.findByIdAndUpdate(
+            orderId, 
+            { status }, 
+            { new: true } // Return the updated document
+        );
+        
+        console.log('Order status updated successfully:', updatedOrder);
+        
+        res.json({ 
+            success: true, 
+            message: "Status Updated Successfully",
+            order: updatedOrder
+        });
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+        console.error('Error updating order status:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 

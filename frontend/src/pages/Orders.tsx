@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/layout/PageHeader';
 import Card, { CardBody } from '../components/ui/Card';
-import { Loader, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import Pagination from '../components/ui/Pagination';
+import { Loader, ChevronDown, ChevronUp, ExternalLink, ArrowLeft } from 'lucide-react';
 import { getUserOrders, formatOrderDate, getStatusBadgeColor, Order } from '../services/orderService';
 import { toast } from 'react-hot-toast';
 
@@ -12,6 +14,11 @@ const Orders: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage] = useState<number>(5);
+  const [displayedOrders, setDisplayedOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -40,6 +47,24 @@ const Orders: React.FC = () => {
     
     fetchOrders();
   }, [user]);
+  
+  // Update displayed orders when all orders change or page changes
+  useEffect(() => {
+    updatePaginatedOrders(currentPage);
+  }, [orders, currentPage]);
+  
+  // Function to update the paginated orders
+  const updatePaginatedOrders = (page: number) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setDisplayedOrders(orders.slice(startIndex, endIndex));
+  };
+  
+  // Function to handle page changes
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setExpandedOrderId(null); // Close any expanded order when changing pages
+  };
 
   const toggleOrderDetails = (orderId: string) => {
     if (expandedOrderId === orderId) {
@@ -65,10 +90,19 @@ const Orders: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <PageHeader 
-        title="My Orders"
-        subtitle="View and track your order history"
-      />
+      <div className="flex justify-between items-center mb-6">
+        <PageHeader 
+          title="My Orders"
+          subtitle="View and track your order history"
+        />
+        <Link 
+          to="/dashboard" 
+          className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+        >
+          <ArrowLeft size={18} className="mr-2" />
+          <span>Back to Dashboard</span>
+        </Link>
+      </div>
       
       {loading ? (
         <div className="flex justify-center items-center py-16">
@@ -97,7 +131,7 @@ const Orders: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {orders.map((order) => (
+          {displayedOrders.map((order) => (
             <Card key={order._id} className="overflow-hidden">
               <div 
                 className="p-4 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-50"
@@ -203,6 +237,19 @@ const Orders: React.FC = () => {
               )}
             </Card>
           ))}
+          
+          {/* Pagination */}
+          {orders.length > itemsPerPage && (
+            <div className="mt-6">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(orders.length / itemsPerPage)}
+                onPageChange={handlePageChange}
+                totalItems={orders.length}
+                itemsPerPage={itemsPerPage}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

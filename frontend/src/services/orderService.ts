@@ -82,3 +82,39 @@ export const getStatusBadgeColor = (status: string): string => {
       return 'bg-gray-100 text-gray-800';
   }
 };
+
+/**
+ * Get all orders (admin only)
+ */
+export const getAllOrders = async (): Promise<OrderResponse> => {
+  try {
+    const response = await api.get('/orders/all');
+    console.log('All orders response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching all orders:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Failed to fetch all orders'
+    };
+  }
+};
+
+/**
+ * Update order status (admin only)
+ */
+export const updateOrderStatus = async (orderId: string, status: string): Promise<{success: boolean; message: string}> => {
+  try {
+    console.log(`Updating order ${orderId} to status: ${status}`);
+    const response = await api.put('/orders/update-status', { orderId, status });
+    console.log('Update status response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error updating order status:', error);
+    console.error('Error details:', error.response?.data || 'No response data');
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Failed to update order status'
+    };
+  }
+};

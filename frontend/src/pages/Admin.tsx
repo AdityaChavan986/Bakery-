@@ -104,8 +104,8 @@ const Admin: React.FC = () => {
   };
 
   const handleViewOrders = () => {
-    // This would navigate to an orders view page
-    alert('View orders functionality would go here');
+    // Navigate to the admin orders page
+    navigate('/admin-orders');
   };
 
   const handleRefresh = () => {

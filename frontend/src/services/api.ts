@@ -16,7 +16,8 @@ api.interceptors.request.use(
     
     // If token exists, add it to the request headers
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      // The backend expects the token in a header named 'token'
+      config.headers.token = token;
     }
     
     return config;
