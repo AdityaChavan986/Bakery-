@@ -1,22 +1,53 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import PageHeader from '../components/layout/PageHeader';
 import Card, { CardBody } from '../components/ui/Card';
-import { ShoppingBag, Calendar, Heart, Clock } from 'lucide-react';
+import { ShoppingBag, Calendar, Heart, Clock, Loader } from 'lucide-react';
+import { getUserOrders, formatOrderDate, getStatusBadgeColor, Order } from '../services/orderService';
+import { toast } from 'react-hot-toast';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { totalItems } = useCart();
-  
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!user) return;
+
+      try {
+        setLoading(true);
+        const response = await getUserOrders();
+
+        if (response.success && response.orders) {
+          setOrders(response.orders);
+        } else {
+          setError(response.message || 'Failed to fetch orders');
+          toast.error(response.message || 'Failed to fetch orders');
+        }
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+        setError('An unexpected error occurred');
+        toast.error('Failed to load orders. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [user]);
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <PageHeader 
+      <PageHeader
         title={`Welcome, ${user?.name}!`}
         subtitle="Here's an overview of your activity"
       />
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardBody className="flex items-center space-x-4">
@@ -29,7 +60,7 @@ const Dashboard: React.FC = () => {
             </div>
           </CardBody>
         </Card>
-        
+
         <Card>
           <CardBody className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
@@ -37,11 +68,11 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-gray-500 text-sm">Orders Placed</p>
-              <p className="text-2xl font-bold text-gray-800">12</p>
+              <p className="text-2xl font-bold text-gray-800">{orders.length}</p>
             </div>
           </CardBody>
         </Card>
-        
+
         <Card>
           <CardBody className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
@@ -53,7 +84,7 @@ const Dashboard: React.FC = () => {
             </div>
           </CardBody>
         </Card>
-        
+
         <Card>
           <CardBody className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
@@ -66,7 +97,7 @@ const Dashboard: React.FC = () => {
           </CardBody>
         </Card>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
         <Card className="lg:col-span-2">
@@ -75,46 +106,71 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="p-4">
             <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  <tr>
-                    <td className="px-4 py-3 text-sm text-gray-900">#12345</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">June 1, 2023</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">$42.50</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Delivered</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 text-sm text-gray-900">#12344</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">May 26, 2023</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">$24.99</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Delivered</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 text-sm text-gray-900">#12343</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">May 20, 2023</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">$36.75</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Delivered</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              {loading ? (
+                <div className="flex justify-center items-center py-8">
+                  <Loader size={24} className="animate-spin text-primary-600 mr-2" />
+                  <span className="text-gray-600">Loading orders...</span>
+                </div>
+              ) : error ? (
+                <div className="text-center py-8">
+                  <p className="text-red-500">{error}</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="mt-2 text-primary-600 hover:text-primary-800 text-sm font-medium"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">You haven't placed any orders yet.</p>
+                  <Link
+                    to="/products"
+                    className="mt-2 inline-block text-primary-600 hover:text-primary-800 text-sm font-medium"
+                  >
+                    Browse products
+                  </Link>
+                </div>
+              ) : (
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {orders.slice(0, 5).map((order) => (
+                      <tr key={order._id}>
+                        <td className="px-4 py-3 text-sm text-gray-900">#{order._id.substring(0, 6)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{formatOrderDate(order.date)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">₹{order.amount.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(order.status)}`}>
+                            {order.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {orders.length > 5 && (
+                <div className="mt-4 text-right">
+                  <Link
+                    to="/orders"
+                    className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+                  >
+                    View all orders
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </Card>
-        
+
         {/* Quick Links */}
         <Card>
           <div className="p-4 border-b border-gray-100">

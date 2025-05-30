@@ -9,6 +9,7 @@ import Products from './pages/Products';
 import AIRecipe from './pages/AIRecipe';
 import Cart from './pages/Cart';
 import Order from './pages/Order';
+import Orders from './pages/Orders';
 import Admin from './pages/Admin';
 import AddProduct from './pages/AddProduct';
 import ProtectedRoute from './components/layout/ProtectedRoute';
@@ -90,6 +91,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Order />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/orders" 
+                  element={
+                    <ProtectedRoute>
+                      <Orders />
                     </ProtectedRoute>
                   } 
                 />

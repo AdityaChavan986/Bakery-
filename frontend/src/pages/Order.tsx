@@ -1,83 +1,134 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import OrderSuccess from '../components/OrderSuccess';
+import api from '../services/api';
+import { toast } from 'react-hot-toast';
 import PageHeader from '../components/layout/PageHeader';
 import Card, { CardBody, CardFooter } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { CreditCard, Truck, Check, MapPin, ChevronRight } from 'lucide-react';
+import { CreditCard, Truck, MapPin, ChevronRight } from 'lucide-react';
 
 const Order: React.FC = () => {
   const { items, totalPrice, clearCart } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [activeTab, setActiveTab] = useState<'shipping' | 'payment'>('shipping');
+  const [orderId, setOrderId] = useState<string>('');
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: 'India', // Default value
+    },
+    paymentMethod: 'credit_card', // Default payment method
     cardNumber: '',
     cardExpiry: '',
     cardCVV: '',
+    upiId: ''
   });
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (name.includes('address.')) {
+      const addressField = name.split('.')[1];
+      setFormData(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          [addressField]: value
+        }
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
-  
-  const handleSubmitOrder = (e: React.FormEvent) => {
+
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+
+    if (!user || !user.id) {
+      toast.error('You must be logged in to place an order');
       setIsSubmitting(false);
-      setOrderPlaced(true);
-      clearCart();
-    }, 2000);
+      return;
+    }
+
+    // Calculate total amount including shipping and tax
+    const shippingCost = 5; // $5 shipping
+    const taxRate = 0.07; // 7% tax
+    const totalAmount = totalPrice + shippingCost + (totalPrice * taxRate);
+    
+    // The user ID will be extracted from the JWT token on the backend
+    // This prevents "Cast to ObjectId failed" errors as mentioned in the memory
+    console.log('Placing order as authenticated user');
+    
+    // Prepare order data according to the backend schema
+    const orderData = {
+      items: items.map(item => {
+        // Ensure we're using MongoDB _id if available
+        const productId = item.product._id || item.product.id;
+        console.log(`Product ID for ${item.product.name}:`, productId);
+        
+        return {
+          productId: productId,
+          quantity: item.quantity,
+          price: item.product.price
+        };
+      }),
+      amount: totalAmount,
+      address: formData.address,
+      paymentMethod: formData.paymentMethod,
+      payment: formData.paymentMethod === 'cod' ? false : true, // Only COD is not paid immediately
+      date: Date.now()
+    };
+    
+    console.log('Submitting order data:', JSON.stringify(orderData, null, 2));
+    
+    try {
+      // Make API call to the backend to place the order
+      const response = await api.post('/orders/place', orderData);
+      console.log('Order API response:', response.data);
+      
+      if (response.data.success) {
+        setOrderId(response.data.orderId || '');
+        setIsSubmitting(false);
+        setOrderPlaced(true);
+        clearCart();
+        toast.success('Order placed successfully!');
+      } else {
+        throw new Error(response.data.message || 'Failed to place order');
+      }
+    } catch (error: any) {
+      console.error('Error placing order:', error);
+      console.error('Error details:', error.response?.data || 'No response data');
+      setIsSubmitting(false);
+      toast.error(error.response?.data?.message || 'Failed to place order. Please try again.');
+    }
   };
-  
+
   if (orderPlaced) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-card p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check size={32} className="text-green-600" />
-          </div>
-          <h2 className="font-serif text-2xl font-semibold text-gray-800 mb-2">Order Placed Successfully!</h2>
-          <p className="text-gray-600 mb-6">
-            Thank you for your order. We've sent a confirmation email with all the details.
-          </p>
-          <p className="text-gray-600 mb-6">
-            Your order number is: <span className="font-semibold">#ORD-12345</span>
-          </p>
-          <Button 
-            variant="primary" 
-            onClick={() => navigate('/dashboard')}
-          >
-            Return to Dashboard
-          </Button>
-        </div>
-      </div>
-    );
+    return <OrderSuccess orderId={orderId} />;
   }
-  
+
   if (items.length === 0) {
     navigate('/cart');
     return null;
   }
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <PageHeader 
+      <PageHeader
         title="Checkout"
         subtitle="Complete your order"
       />
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Checkout Form */}
         <div className="lg:col-span-2">
@@ -86,8 +137,8 @@ const Order: React.FC = () => {
               <div className="flex">
                 <button
                   className={`flex-1 py-4 text-center font-medium ${
-                    activeTab === 'shipping' 
-                      ? 'text-primary-600 border-b-2 border-primary-600' 
+                    activeTab === 'shipping'
+                      ? 'text-primary-600 border-b-2 border-primary-600'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                   onClick={() => setActiveTab('shipping')}
@@ -99,8 +150,8 @@ const Order: React.FC = () => {
                 </button>
                 <button
                   className={`flex-1 py-4 text-center font-medium ${
-                    activeTab === 'payment' 
-                      ? 'text-primary-600 border-b-2 border-primary-600' 
+                    activeTab === 'payment'
+                      ? 'text-primary-600 border-b-2 border-primary-600'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                   onClick={() => setActiveTab('payment')}
@@ -112,105 +163,93 @@ const Order: React.FC = () => {
                 </button>
               </div>
             </div>
-            
+
             <form onSubmit={handleSubmitOrder}>
               <CardBody>
                 {activeTab === 'shipping' && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 gap-4">
                       <div>
-                        <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                          Full Name
+                        <label htmlFor="address.street" className="block text-sm font-medium text-gray-700 mb-1">
+                          Street Address
                         </label>
                         <input
                           type="text"
-                          id="fullName"
-                          name="fullName"
-                          value={formData.fullName}
+                          id="address.street"
+                          name="address.street"
+                          value={formData.address.street}
                           onChange={handleChange}
                           required
                           className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                         />
                       </div>
-                      
-                      <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
-                        <input
-                          type="email"
-                          id="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          required
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                          Address
-                        </label>
-                        <input
-                          type="text"
-                          id="address"
-                          name="address"
-                          value={formData.address}
-                          onChange={handleChange}
-                          required
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-                        />
-                      </div>
-                      
+
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                          <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                          <label htmlFor="address.city" className="block text-sm font-medium text-gray-700 mb-1">
                             City
                           </label>
                           <input
                             type="text"
-                            id="city"
-                            name="city"
-                            value={formData.city}
+                            id="address.city"
+                            name="address.city"
+                            value={formData.address.city}
                             onChange={handleChange}
                             required
                             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                           />
                         </div>
-                        
+
                         <div>
-                          <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
+                          <label htmlFor="address.state" className="block text-sm font-medium text-gray-700 mb-1">
                             State
                           </label>
                           <input
                             type="text"
-                            id="state"
-                            name="state"
-                            value={formData.state}
+                            id="address.state"
+                            name="address.state"
+                            value={formData.address.state}
                             onChange={handleChange}
                             required
                             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                           />
                         </div>
-                        
+
                         <div>
-                          <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
-                            Zip Code
+                          <label htmlFor="address.postalCode" className="block text-sm font-medium text-gray-700 mb-1">
+                            Postal Code
                           </label>
                           <input
                             type="text"
-                            id="zipCode"
-                            name="zipCode"
-                            value={formData.zipCode}
+                            id="address.postalCode"
+                            name="address.postalCode"
+                            value={formData.address.postalCode}
                             onChange={handleChange}
                             required
                             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                           />
                         </div>
                       </div>
+
+                      <div>
+                        <label htmlFor="address.country" className="block text-sm font-medium text-gray-700 mb-1">
+                          Country
+                        </label>
+                        <select
+                          id="address.country"
+                          name="address.country"
+                          value={formData.address.country}
+                          onChange={handleChange}
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                        >
+                          <option value="India">India</option>
+                          <option value="USA">United States</option>
+                          <option value="UK">United Kingdom</option>
+                          {/* Add more countries as needed */}
+                        </select>
+                      </div>
                     </div>
-                    
+
                     <div className="pt-4">
                       <Button
                         type="button"
@@ -224,61 +263,101 @@ const Order: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {activeTab === 'payment' && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 gap-4">
                       <div>
-                        <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                          Card Number
+                        <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-1">
+                          Payment Method
                         </label>
-                        <input
-                          type="text"
-                          id="cardNumber"
-                          name="cardNumber"
-                          value={formData.cardNumber}
+                        <select
+                          id="paymentMethod"
+                          name="paymentMethod"
+                          value={formData.paymentMethod}
                           onChange={handleChange}
-                          placeholder="1234 5678 9012 3456"
-                          required
                           className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-                        />
+                        >
+                          <option value="credit_card">Credit Card</option>
+                          <option value="debit_card">Debit Card</option>
+                          <option value="paypal">PayPal</option>
+                          <option value="upi">UPI</option>
+                          <option value="net_banking">Net Banking</option>
+                          <option value="cod">Cash on Delivery</option>
+                        </select>
                       </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
+
+                      {formData.paymentMethod === 'credit_card' || formData.paymentMethod === 'debit_card' ? (
+                        <>
+                          <div>
+                            <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                              Card Number
+                            </label>
+                            <input
+                              type="text"
+                              id="cardNumber"
+                              name="cardNumber"
+                              value={formData.cardNumber}
+                              onChange={handleChange}
+                              placeholder="1234 5678 9012 3456"
+                              required
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label htmlFor="cardExpiry" className="block text-sm font-medium text-gray-700 mb-1">
+                                Expiry Date
+                              </label>
+                              <input
+                                type="text"
+                                id="cardExpiry"
+                                name="cardExpiry"
+                                value={formData.cardExpiry}
+                                onChange={handleChange}
+                                placeholder="MM/YY"
+                                required
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                              />
+                            </div>
+
+                            <div>
+                              <label htmlFor="cardCVV" className="block text-sm font-medium text-gray-700 mb-1">
+                                CVV
+                              </label>
+                              <input
+                                type="text"
+                                id="cardCVV"
+                                name="cardCVV"
+                                value={formData.cardCVV}
+                                onChange={handleChange}
+                                placeholder="123"
+                                required
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : formData.paymentMethod === 'upi' ? (
                         <div>
-                          <label htmlFor="cardExpiry" className="block text-sm font-medium text-gray-700 mb-1">
-                            Expiry Date
+                          <label htmlFor="upiId" className="block text-sm font-medium text-gray-700 mb-1">
+                            UPI ID
                           </label>
                           <input
                             type="text"
-                            id="cardExpiry"
-                            name="cardExpiry"
-                            value={formData.cardExpiry}
+                            id="upiId"
+                            name="upiId"
+                            value={formData.upiId}
                             onChange={handleChange}
-                            placeholder="MM/YY"
+                            placeholder="yourname@upi"
                             required
                             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                           />
                         </div>
-                        
-                        <div>
-                          <label htmlFor="cardCVV" className="block text-sm font-medium text-gray-700 mb-1">
-                            CVV
-                          </label>
-                          <input
-                            type="text"
-                            id="cardCVV"
-                            name="cardCVV"
-                            value={formData.cardCVV}
-                            onChange={handleChange}
-                            placeholder="123"
-                            required
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-                          />
-                        </div>
-                      </div>
+                      ) : null}
                     </div>
-                    
+
                     <div className="pt-4 flex justify-between">
                       <Button
                         type="button"

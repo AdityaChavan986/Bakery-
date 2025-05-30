@@ -1,27 +1,64 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 
-// Placing Order using COD Method
+// Placing Order with any payment method
 const placedOrder = async (req, res) => {
     try {
-        const { userId, items, amount, address } = req.body;
+        // Get user from authenticated user object
+        const user = req.user;
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "User not authenticated"
+            });
+        }
+        
+        // Get user ID, ensuring we use a consistent format
+        const userId = user.id || user._id;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid user ID"
+            });
+        }
+        
+        const { items, amount, address, paymentMethod, payment } = req.body;
+        
+        console.log('User object:', user);
+        console.log('Placing order for user ID:', userId);
+        console.log('User ID type:', typeof userId);
+        
+        // Validate required fields
+        if (!items || !amount || !address) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Missing required fields for order placement" 
+            });
+        }
 
+        // Create order data with the payment method from request (default to COD if not provided)
         const orderData = {
             userId,
             items,
             address,
             amount,
-            paymentMethod: "COD",
-            payment: false,
+            paymentMethod: paymentMethod || "COD",
+            payment: payment !== undefined ? payment : false,
             date: Date.now()
         };
 
         const newOrder = new orderModel(orderData);
         await newOrder.save();
 
+        // Clear the user's cart after successful order
         await userModel.findByIdAndUpdate(userId, { cartData: {} });
 
-        res.json({ success: true, message: "Order Placed Successfully" });
+        // Return the order ID along with success message
+        res.json({ 
+            success: true, 
+            message: "Order Placed Successfully",
+            orderId: newOrder._id 
+        });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -42,13 +79,38 @@ const allOrders = async (req, res) => {
 // User Order Data for Frontend
 const userOrders = async (req, res) => {
     try {
-        const { userId } = req.body;
+        // Get user from the authenticated user object
+        const user = req.user;
 
-        const orders = await orderModel.find({ userId });
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'User not authenticated' });
+        }
+
+        // Get all possible user ID formats
+        const userId = user.id || user._id;
+        
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'Invalid user ID' });
+        }
+
+        console.log('User object:', user);
+        console.log('Fetching orders for user ID:', userId);
+        console.log('User ID type:', typeof userId);
+
+        // Try to find orders with exact userId match
+        let orders = await orderModel.find({ userId: userId });
+        
+        if (orders.length === 0) {
+            // If no orders found, try with userId as string
+            console.log('No orders found with direct ID, trying with string ID');
+            orders = await orderModel.find({ userId: userId.toString() });
+        }
+        
+        console.log(`Found ${orders.length} orders for user ${userId}`);
         res.json({ success: true, orders });
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+        console.error('Error in userOrders:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
