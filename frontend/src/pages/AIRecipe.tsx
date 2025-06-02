@@ -1,56 +1,115 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 import PageHeader from '../components/layout/PageHeader';
 import Card, { CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { Lightbulb, Coffee, Sparkles } from 'lucide-react';
 
 const AIRecipe: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [showRecipe, setShowRecipe] = useState(false);
-  const [ingredients, setIngredients] = useState<string[]>([
-    'flour', 'sugar', 'butter'
-  ]);
+  const [ingredients, setIngredients] = useState<string[]>([]);
   const [newIngredient, setNewIngredient] = useState('');
-  
+  const [dishName, setDishName] = useState('');
+  const [generatedRecipe, setGeneratedRecipe] = useState('');
+  const [error, setError] = useState('');
+  const [isFallback, setIsFallback] = useState(false);
+  const [serviceMessage, setServiceMessage] = useState('');
+
   const handleAddIngredient = () => {
     if (newIngredient.trim() !== '') {
       setIngredients([...ingredients, newIngredient.trim()]);
       setNewIngredient('');
     }
   };
-  
+
   const handleRemoveIngredient = (index: number) => {
     setIngredients(ingredients.filter((_, i) => i !== index));
   };
-  
-  const handleGenerateRecipe = () => {
+
+  const handleGenerateRecipe = async () => {
+    if (!dishName.trim()) {
+      setError('Please enter a dish name');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setError('You need to be logged in to generate recipes');
+      return;
+    }
+
+    setError('');
     setGenerating(true);
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      const response = await axios.post('/api/recipes/generate', {
+        dishName: dishName.trim(),
+        ingredients: ingredients.length > 0 ? ingredients : undefined
+      });
+
+      // Axios throws errors automatically for non-2xx responses
+      // so we don't need to check response.ok
+      
+      // Axios already parses JSON responses into response.data
+      setGeneratedRecipe(response.data.recipe);
+      
+      // Check if this is a fallback recipe
+      if (response.data.fallback) {
+        setIsFallback(true);
+        setServiceMessage(response.data.message || 'Using a basic recipe template.');
+      } else {
+        setIsFallback(false);
+        setServiceMessage('');
+      }
+      
       setGenerating(false);
       setShowRecipe(true);
-    }, 2000);
+    } catch (err) {
+      console.error('Error generating recipe:', err);
+      setError('Failed to generate recipe. Please try again.');
+      setGenerating(false);
+    }
   };
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <PageHeader 
+      <PageHeader
         title="AI Recipe Generator"
         subtitle="Let our AI create a unique recipe based on ingredients you have"
       />
-      
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Ingredients Selection */}
+        {/* Dish and Ingredients Selection */}
         <Card className="lg:col-span-1">
           <div className="p-4 border-b border-gray-100 flex items-center space-x-2">
             <Coffee size={20} className="text-primary-600" />
-            <h3 className="font-serif text-xl font-semibold text-gray-800">Ingredients</h3>
+            <h3 className="font-serif text-xl font-semibold text-gray-800">Recipe Generator</h3>
           </div>
           <CardBody>
             <p className="text-gray-600 mb-4">
-              Add the ingredients you have available, and our AI will create a custom recipe for you.
+              Enter a dish name and optionally add ingredients to generate a custom recipe.
             </p>
-            
+
+            <div className="mb-4">
+              <label htmlFor="dishName" className="block text-sm font-medium text-gray-700 mb-1">Dish Name (Required)</label>
+              <input
+                id="dishName"
+                type="text"
+                value={dishName}
+                onChange={(e) => setDishName(e.target.value)}
+                placeholder="Enter dish name..."
+                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+              />
+            </div>
+
             <div className="flex mb-4">
               <input
                 type="text"
@@ -72,19 +131,19 @@ const AIRecipe: React.FC = () => {
                 Add
               </button>
             </div>
-            
+
             <div className="mb-4">
               <h4 className="font-medium text-gray-700 mb-2">Current Ingredients:</h4>
               {ingredients.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {ingredients.map((ingredient, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="bg-primary-100 text-primary-800 rounded-full px-3 py-1 text-sm flex items-center"
                     >
                       {ingredient}
-                      <button 
-                        onClick={() => handleRemoveIngredient(index)} 
+                      <button
+                        onClick={() => handleRemoveIngredient(index)}
                         className="ml-1 text-primary-600 hover:text-primary-800 focus:outline-none"
                       >
                         ×
@@ -96,12 +155,12 @@ const AIRecipe: React.FC = () => {
                 <p className="text-gray-500 italic">No ingredients added yet.</p>
               )}
             </div>
-            
+
             <Button
               variant="primary"
               fullWidth
               loading={generating}
-              disabled={ingredients.length === 0 || generating}
+              disabled={!dishName.trim() || generating}
               onClick={handleGenerateRecipe}
             >
               <Sparkles size={16} className="mr-2" />
@@ -109,7 +168,7 @@ const AIRecipe: React.FC = () => {
             </Button>
           </CardBody>
         </Card>
-        
+
         {/* Recipe Display */}
         <Card className="lg:col-span-2">
           <div className="p-4 border-b border-gray-100 flex items-center space-x-2">
@@ -119,43 +178,56 @@ const AIRecipe: React.FC = () => {
           <CardBody>
             {showRecipe ? (
               <div>
-                <h2 className="font-serif text-2xl font-bold mb-4 text-gray-800">Buttery Vanilla Shortbread Cookies</h2>
-                
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2 text-gray-700">Ingredients:</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600">
-                    <li>2 cups all-purpose flour</li>
-                    <li>1 cup unsalted butter, softened</li>
-                    <li>1/2 cup granulated sugar</li>
-                    <li>1/4 teaspoon salt</li>
-                    <li>1 teaspoon vanilla extract</li>
-                  </ul>
+                {isFallback && serviceMessage && (
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-yellow-700">{serviceMessage}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="prose prose-sm sm:prose lg:prose-lg max-w-none">
+                  {generatedRecipe.split('\n').map((line, index) => {
+                    // Check if line is a section title (ends with a colon)
+                    if (line.trim().endsWith(':') && line.trim().length < 30) {
+                      return <h3 key={index} className="text-lg font-semibold mt-4 mb-2 text-gray-700">{line}</h3>;
+                    }
+                    
+                    // First line is likely the recipe title
+                    if (index === 0 && line.trim() !== '') {
+                      return <h1 key={index} className="font-serif text-2xl font-bold mb-4 text-gray-800">{line}</h1>;
+                    }
+                    
+                    // Check if line is a numbered step (starts with a number and period)
+                    if (line.match(/^\s*\d+\.\s+/)) {
+                      const match = line.match(/^\s*\d+\./); 
+                      return <div key={index} className="flex mb-2">
+                        <span className="font-medium mr-2">{match ? match[0] : ''}</span>
+                        <span className="text-gray-600">{line.replace(/^\s*\d+\.\s+/, '')}</span>
+                      </div>;
+                    }
+                    
+                    // Regular paragraph or ingredient line
+                    if (line.trim() !== '') {
+                      return <p key={index} className="text-gray-600 mb-2">{line}</p>;
+                    }
+                    
+                    // Empty line
+                    return <br key={index} />;
+                  })}
                 </div>
-                
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2 text-gray-700">Instructions:</h3>
-                  <ol className="list-decimal list-inside space-y-2 text-gray-600">
-                    <li>Preheat your oven to 325°F (165°C) and line a baking sheet with parchment paper.</li>
-                    <li>In a large bowl, cream together the softened butter and sugar until light and fluffy.</li>
-                    <li>Add the vanilla extract and mix well.</li>
-                    <li>Gradually add the flour and salt, mixing until just combined. Be careful not to overmix.</li>
-                    <li>Form the dough into a ball and roll it out on a lightly floured surface to about 1/4 inch thickness.</li>
-                    <li>Cut into desired shapes using cookie cutters, or simply cut into squares or rectangles.</li>
-                    <li>Place the cookies on the prepared baking sheet, leaving about 1 inch between each.</li>
-                    <li>Bake for 15-18 minutes, or until the edges are just beginning to turn golden.</li>
-                    <li>Allow the cookies to cool on the baking sheet for 5 minutes, then transfer to a wire rack to cool completely.</li>
-                  </ol>
-                </div>
-                
-                <div>
-                  <h3 className="text-lg font-semibold mb-2 text-gray-700">Notes:</h3>
-                  <p className="text-gray-600">
-                    These shortbread cookies are perfect with a cup of tea or coffee. For a variation, you can add lemon zest, chocolate chips, or dip half of each cookie in melted chocolate after baking. Store in an airtight container for up to one week.
-                  </p>
-                </div>
-                
+
                 <div className="mt-6 flex justify-end">
-                  <Button variant="outline" onClick={() => setShowRecipe(false)}>
+                  <Button variant="outline" onClick={() => {
+                    setShowRecipe(false);
+                    setGeneratedRecipe('');
+                  }}>
                     Reset
                   </Button>
                 </div>

@@ -93,20 +93,17 @@ const userOrders = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid user ID' });
         }
 
-        console.log('User object:', user);
-        console.log('Fetching orders for user ID:', userId);
-        console.log('User ID type:', typeof userId);
+        // Debug logs removed
 
         // Try to find orders with exact userId match
         let orders = await orderModel.find({ userId: userId });
         
         if (orders.length === 0) {
             // If no orders found, try with userId as string
-            console.log('No orders found with direct ID, trying with string ID');
             orders = await orderModel.find({ userId: userId.toString() });
         }
         
-        console.log(`Found ${orders.length} orders for user ${userId}`);
+        // Send the orders to the client
         res.json({ success: true, orders });
     } catch (error) {
         console.error('Error in userOrders:', error);

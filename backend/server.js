@@ -7,6 +7,7 @@ import productRouter from './routes/productRoutes.js';
 import userRouter from './routes/userRoutes.js';
 import cartRouter from './routes/cartRoutes.js';
 import orderRouter from './routes/orderRoutes.js';
+import recipeRouter from './routes/recipeRoutes.js';
 
 
 
@@ -29,6 +30,7 @@ app.use('/api/users', userRouter);
 app.use('/api/products', productRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/orders', orderRouter);
+app.use('/api/recipes', recipeRouter);
 
 
 app.get('/', (req, res) => {

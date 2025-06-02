@@ -142,5 +142,24 @@ const findUserByEmail = async (req, res) => {
         res.json({success: false, message: error.message});
     }
 };
+// Get current user (for token verification)
+const getCurrentUser = async (req, res) => {
+    try {
+        // The auth middleware already verified the token and attached the user
+        // We just need to return a success response
+        res.json({
+            success: true,
+            message: "Token is valid",
+            user: {
+                _id: req.user._id,
+                name: req.user.name,
+                email: req.user.email
+            }
+        });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({success: false, message: error.message});
+    }
+};
 
-export { loginUser, registerUser, adminLogin, findUserByEmail };
+export { loginUser, registerUser, adminLogin, findUserByEmail, getCurrentUser };

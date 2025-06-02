@@ -31,6 +31,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Check for stored token and user data on initial load
   useEffect(() => {
+    // Helper function to clear all auth data
+    const clearAuthData = () => {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('isAdmin');
+      setUser(null);
+      setIsAdmin(false);
+      delete axios.defaults.headers.common['Authorization'];
+      console.log('Auth data cleared');
+    };
+    
+    // Authentication check on app start
     const checkAuthStatus = async () => {
       try {
         setIsLoading(true);
@@ -43,14 +55,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Try to extract the user ID from the token first
             let userId;
             try {
+              // Check if token is valid by decoding it
               const decoded: any = jwtDecode(token);
+              
+              // Verify token hasn't expired
+              const currentTime = Date.now() / 1000;
+              if (decoded.exp && decoded.exp < currentTime) {
+                console.warn('Token has expired');
+                clearAuthData();
+                return;
+              }
+              
               userId = decoded.id; // The backend puts the user ID in the 'id' field of the token
               console.log('Decoded token:', decoded);
             } catch (decodeErr) {
               console.error('Failed to decode token:', decodeErr);
-              // If we can't decode the token, use the stored user data
-              const userData = JSON.parse(storedUser);
-              userId = userData.id;
+              // If we can't decode the token, clear all auth data and return
+              clearAuthData();
+              return;
             }
             
             // Now create the user object with the correct ID
@@ -64,9 +86,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             
             // Optional: Verify token with backend
-            // This would be a good place to validate the token with the server
-            // const response = await axios.get('/api/users/verify-token');
-            // if (!response.data.success) throw new Error('Invalid token');
+            try {
+              // Make a lightweight request to verify the token
+              await axios.get(`${BACKEND_URL}/api/users/me`);
+            } catch (verifyErr: any) {
+              // If server rejects the token, clear auth data
+              if (verifyErr.response?.status === 401) {
+                console.warn('Token rejected by server');
+                clearAuthData();
+                return;
+              }
+            }
           } catch (err) {
             console.error('Failed to parse stored user data or invalid token', err);
             localStorage.removeItem('user');
