@@ -3,7 +3,8 @@ import {
   placedOrder,
   allOrders,
   userOrders,
-  updateStatus
+  updateStatus,
+  generateInvoice
 } from '../controllers/orderController.js';
 import auth from '../middleware/auth.js';
 import adminAuth from '../middleware/adminAuth.js';
@@ -20,5 +21,7 @@ router.get('/user-orders', auth, userOrders);
 router.get('/all', adminAuth, allOrders);
 router.put('/update-status', adminAuth, updateStatus);
 
+// Download invoice for an order
+router.get('/invoice/:orderId', auth, generateInvoice);
 
 export default router;

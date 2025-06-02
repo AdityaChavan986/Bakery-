@@ -5,6 +5,7 @@ export interface OrderItem {
   productId: string;
   quantity: number;
   price: number;
+  productName?: string; // Optional because older orders might not have it
 }
 
 export interface Order {
@@ -97,6 +98,37 @@ export const getAllOrders = async (): Promise<OrderResponse> => {
       success: false,
       message: error.response?.data?.message || 'Failed to fetch all orders'
     };
+  }
+};
+
+/**
+ * Download invoice for an order
+ * @param orderId - The ID of the order to generate an invoice for
+ */
+export const downloadInvoice = async (orderId: string): Promise<void> => {
+  try {
+    // Use axios to get the invoice with responseType blob
+    const response = await api.get(`/orders/invoice/${orderId}`, {
+      responseType: 'blob'
+    });
+    
+    // Create a blob URL for the invoice
+    const blob = new Blob([response.data], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    
+    // Create a temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `invoice-${orderId}.html`);
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    console.error('Error downloading invoice:', error);
+    throw new Error(error.response?.data?.message || 'Failed to download invoice');
   }
 };
 

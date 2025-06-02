@@ -442,7 +442,7 @@ const Order: React.FC = () => {
             <CardFooter>
               <div className="flex items-center justify-center text-gray-600 text-sm">
                 <Truck size={16} className="mr-2" />
-                <span>Estimated delivery: 2-4 business days</span>
+                <span>Estimated delivery: 30-40 min</span>
               </div>
             </CardFooter>
           </Card>

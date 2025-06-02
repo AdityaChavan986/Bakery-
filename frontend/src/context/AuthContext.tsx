@@ -88,7 +88,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Optional: Verify token with backend
             try {
               // Make a lightweight request to verify the token
-              await axios.get(`${BACKEND_URL}/api/users/me`);
+              await axios.get(`${BACKEND_URL}api/users/me`);
             } catch (verifyErr: any) {
               // If server rejects the token, clear auth data
               if (verifyErr.response?.status === 401) {

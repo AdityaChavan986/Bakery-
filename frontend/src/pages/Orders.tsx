@@ -5,7 +5,7 @@ import PageHeader from '../components/layout/PageHeader';
 import Card, { CardBody } from '../components/ui/Card';
 import Pagination from '../components/ui/Pagination';
 import { Loader, ChevronDown, ChevronUp, ExternalLink, ArrowLeft } from 'lucide-react';
-import { getUserOrders, formatOrderDate, getStatusBadgeColor, Order } from '../services/orderService';
+import { getUserOrders, formatOrderDate, getStatusBadgeColor, Order, downloadInvoice } from '../services/orderService';
 import { toast } from 'react-hot-toast';
 
 const Orders: React.FC = () => {
@@ -210,7 +210,9 @@ const Orders: React.FC = () => {
                         <tbody className="divide-y divide-gray-200">
                           {order.items.map((item, index) => (
                             <tr key={index}>
-                              <td className="px-4 py-3 text-sm text-gray-900">Product ID: {item.productId}</td>
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {item.productName || `Product ${item.productId.substring(0, 6)}...`}
+                              </td>
                               <td className="px-4 py-3 text-sm text-gray-900 text-right">{item.quantity}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 text-right">₹{item.price.toFixed(2)}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 text-right">₹{(item.price * item.quantity).toFixed(2)}</td>
@@ -228,7 +230,18 @@ const Orders: React.FC = () => {
                   </div>
                   
                   <div className="mt-6 flex justify-end">
-                    <button className="flex items-center text-primary-600 hover:text-primary-800">
+                    <button 
+                      className="flex items-center text-primary-600 hover:text-primary-800 px-4 py-2 border border-primary-600 rounded-md hover:bg-primary-50 transition-colors"
+                      onClick={() => {
+                        try {
+                          downloadInvoice(order._id);
+                          toast.success('Invoice download started');
+                        } catch (err) {
+                          console.error('Error downloading invoice:', err);
+                          toast.error('Failed to download invoice. Please try again.');
+                        }
+                      }}
+                    >
                       <ExternalLink size={16} className="mr-1" />
                       <span>Download Invoice</span>
                     </button>

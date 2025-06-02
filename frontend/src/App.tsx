@@ -18,6 +18,7 @@ import AdminRoute from './components/layout/AdminRoute';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 
+
 function App() {
   return (
     <AuthProvider>
