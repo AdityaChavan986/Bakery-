@@ -7,6 +7,9 @@ import { jwtDecode } from 'jwt-decode';
 // Get the backend URL from environment variables
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
+// Make sure BACKEND_URL doesn't have a trailing slash
+const normalizedBackendUrl = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL;
+
 // Configure axios defaults
 axios.defaults.baseURL = BACKEND_URL;
 
@@ -88,7 +91,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Optional: Verify token with backend
             try {
               // Make a lightweight request to verify the token
-              await axios.get(`${BACKEND_URL}api/users/me`);
+              await axios.get(`${normalizedBackendUrl}/api/users/me`);
             } catch (verifyErr: any) {
               // If server rejects the token, clear auth data
               if (verifyErr.response?.status === 401) {
@@ -120,7 +123,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setError(null);
       
-      const response = await axios.post(`${BACKEND_URL}/api/users/login`, { email, password });
+      const response = await axios.post(`${normalizedBackendUrl}/api/users/login`, { email, password });
       const data = response.data;
       
       if (!data.success) {
@@ -137,7 +140,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // First, try to find the user by email to get their MongoDB ID
       try {
         // This is a temporary solution - in a real app, you'd want the backend to return the user ID
-        const userResponse = await axios.post(`${BACKEND_URL}/api/users/find-by-email`, { email });
+        const userResponse = await axios.post(`${normalizedBackendUrl}/api/users/find-by-email`, { email });
         if (userResponse.data.success && userResponse.data.user) {
           console.log('Found user by email:', userResponse.data.user);
           // Use the MongoDB ID from the backend response
@@ -207,7 +210,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setError(null);
       console.log('AdminLogin - Attempting admin login with:', { email });
       
-      const response = await axios.post(`${BACKEND_URL}/api/users/admin`, { email, password });
+      const response = await axios.post(`${normalizedBackendUrl}/api/users/admin`, { email, password });
       const data = response.data;
       console.log('AdminLogin - Server response:', data);
       
