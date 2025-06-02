@@ -1,7 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import dotenv from 'dotenv';
 
-// Initialize the Google Generative AI with your API key
-const genAI = new GoogleGenerativeAI('AIzaSyBi3oK8LMXcnGzbjikT4TZmABVi9eXCAxc');
+// Load environment variables
+dotenv.config();
+
+// Initialize the Google Generative AI with API key from environment variables
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 
 // Helper function to wait between retries
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
