@@ -135,18 +135,32 @@ export const downloadInvoice = async (orderId: string): Promise<void> => {
 /**
  * Update order status (admin only)
  */
-export const updateOrderStatus = async (orderId: string, status: string): Promise<{success: boolean; message: string}> => {
+export const updateOrderStatus = async (orderId: string, newStatus: string): Promise<OrderResponse> => {
   try {
-    console.log(`Updating order ${orderId} to status: ${status}`);
-    const response = await api.put('/orders/update-status', { orderId, status });
-    console.log('Update status response:', response.data);
+    const response = await api.put('/orders/update-status', { orderId, status: newStatus });
     return response.data;
   } catch (error: any) {
     console.error('Error updating order status:', error);
-    console.error('Error details:', error.response?.data || 'No response data');
     return {
       success: false,
       message: error.response?.data?.message || 'Failed to update order status'
+    };
+  }
+};
+
+/**
+ * Send invoice email to customer
+ */
+export const sendInvoiceEmail = async (orderId: string): Promise<OrderResponse> => {
+  try {
+    // Send request to send invoice email
+    const response = await api.post(`/orders/send-invoice/${orderId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error sending invoice email:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Failed to send invoice email'
     };
   }
 };

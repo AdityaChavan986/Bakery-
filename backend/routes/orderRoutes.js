@@ -6,6 +6,7 @@ import {
   updateStatus,
   generateInvoice
 } from '../controllers/orderController.js';
+import { sendOrderInvoice } from '../controllers/emailController.js';
 import auth from '../middleware/auth.js';
 import adminAuth from '../middleware/adminAuth.js';
 
@@ -23,5 +24,7 @@ router.put('/update-status', adminAuth, updateStatus);
 
 // Download invoice for an order
 router.get('/invoice/:orderId', auth, generateInvoice);
+// Send invoice via email
+router.post('/send-invoice/:orderId', adminAuth, sendOrderInvoice);
 
 export default router;

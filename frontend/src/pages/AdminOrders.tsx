@@ -6,7 +6,7 @@ import Card, { CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Pagination from '../components/ui/Pagination';
 import { Loader, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
-import { getAllOrders, formatOrderDate, getStatusBadgeColor, Order, updateOrderStatus } from '../services/orderService';
+import { getAllOrders, formatOrderDate, getStatusBadgeColor, Order, updateOrderStatus, sendInvoiceEmail } from '../services/orderService';
 import { toast } from 'react-hot-toast';
 
 const AdminOrders: React.FC = () => {
@@ -282,9 +282,18 @@ const AdminOrders: React.FC = () => {
                           variant="outline" 
                           size="sm" 
                           fullWidth
-                          onClick={() => {
-                            // Functionality to send email to customer
-                            toast.success('Email notification feature will be implemented soon');
+                          onClick={async () => {
+                            try {
+                              const response = await sendInvoiceEmail(order._id);
+                              if (response.success) {
+                                toast.success('Invoice sent successfully to customer');
+                              } else {
+                                throw new Error(response.message || 'Failed to send email');
+                              }
+                            } catch (error) {
+                              console.error('Error sending email notification:', error);
+                              toast.error('Failed to send email notification. Please try again.');
+                            }
                           }}
                         >
                           Send Email Notification

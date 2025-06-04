@@ -3,11 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
 import { Eye, EyeOff, Coffee, User, ShieldCheck } from 'lucide-react';
-import axios from 'axios';
 import { toast } from 'react-hot-toast';
-
-// Get the backend URL from environment variables
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+import api from '../services/api';
 
 const Login: React.FC = () => {
   // Active tab state for signup/login
@@ -74,8 +71,8 @@ const Login: React.FC = () => {
     }
     
     try {
-      // Call signup API using axios with the backend URL
-      const response = await axios.post(`${BACKEND_URL}/api/users/register`, {
+      // Call signup API using api service
+      const response = await api.post('/users/register', {
         name: signupName,
         email: signupEmail,
         password: signupPassword,
